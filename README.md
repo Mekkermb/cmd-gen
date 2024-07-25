@@ -1,6 +1,6 @@
-# cmd-gen
+# cmd|gen
 
-cmd-gen is a web-based tool designed to generate command-line parameters for various video encoding technologies. Whether you're a beginner or an experienced user, cmd-gen is a valuable resource for encoding video files.
+cmd|gen is a web-based tool designed to generate command-line parameters for various video encoding technologies. Whether you're a beginner or an experienced user, cmd|gen is a valuable resource for encoding video files.
 
 ## Planned Features
 
@@ -11,12 +11,12 @@ cmd-gen is a web-based tool designed to generate command-line parameters for var
 
 ## Getting Started
 
-To get started with cmd-gen, visit the [website](#).
+To get started with cmd|gen, visit the [website](https://cmdgen.mads.codes).
 
 ## Contributing
 
-If you find cmd-gen useful, consider starring the repository on GitHub. Your support is greatly appreciated!
+If you find cmd|gen useful, consider starring the repository on GitHub. Your support is greatly appreciated!
 
 ## Acknowledgements
 
-cmd-gen is crafted with ❤️ by Mekker
+cmd|gen is crafted with ❤️ by Mekker
