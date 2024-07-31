@@ -1,7 +1,12 @@
+import CommandGenerator from "@/components/command-generator";
+import React from "react";
+
 export default function Home() {
   return (
     <main>
-      <div>Hello world!</div>
+      <React.Suspense fallback={<div>Loading...</div>}>
+        <CommandGenerator />
+      </React.Suspense>
     </main>
   );
 }
