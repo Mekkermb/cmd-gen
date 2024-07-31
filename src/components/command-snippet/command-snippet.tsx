@@ -1,11 +1,43 @@
 import React from "react";
+import { Parameter } from "@/lib/definitions";
 
-function CommandSnippet({ code }: { code: string }) {
+interface CommandSnippetProps {
+  executable: string;
+  parameters: Parameter[];
+  values: Record<string, string | number>;
+}
+
+function CommandSnippet({
+  executable,
+  parameters,
+  values,
+}: CommandSnippetProps) {
+  const commandParts = parameters.map((param) => {
+    const value = values[param.key];
+    if (value === "" || value === undefined) {
+      return "";
+    }
+
+    let formattedValue = value;
+    if (
+      param.appendExtension &&
+      typeof value === "string" &&
+      value.trim() !== ""
+    ) {
+      formattedValue = `${value}${param.appendExtension}`;
+    }
+
+    return `--${param.key} ${formattedValue}`;
+  });
+
+  const fullCommand = `${executable} ${commandParts.filter(Boolean).join(" ")}`;
+
   return (
     <div>
-      Command: <span>./SvtAv1EncApp {code}</span>
+      <span>Command: </span>
+      <code>{fullCommand.trim()}</code>
     </div>
   );
 }
 
-export default React.memo(CommandSnippet);
+export default CommandSnippet;

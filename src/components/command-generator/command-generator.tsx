@@ -1,115 +1,101 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useImmer } from "use-immer";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
-
-import CommandSnippet from "@/components/command-snippet";
 import { useDebouncedCallback } from "use-debounce";
 
-export default function CommandGenerator() {
-  const [input, updateInput] = useImmer("");
-  const [output, updateOutput] = useImmer("");
-  const [preset, updatePreset] = useImmer(10);
-  const [crf, updateCrf] = useImmer(35);
+import CommandSnippet from "@/components/command-snippet";
+import { ParameterInput } from "@/components/parameter-input";
+import { encoders } from "@/lib/placeholder-data";
+import { Encoder } from "@/lib/definitions";
 
+export default function CommandGenerator() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { replace } = useRouter();
+  const router = useRouter();
 
-  useEffect(() => {
-    // Initialize state from URL params
-    updateInput(searchParams.get("input") || "");
-    updateOutput(searchParams.get("output") || "");
-    updatePreset(Number(searchParams.get("preset")) || 10);
-    updateCrf(Number(searchParams.get("crf")) || 35);
-  }, [searchParams, updateInput, updateOutput, updatePreset, updateCrf]);
-
-  const updateURLParams = useDebouncedCallback(() => {
-    const params = new URLSearchParams(searchParams);
-    for (const [key, value] of Object.entries({ input, output, preset, crf })) {
-      if (value !== "") {
-        params.set(key, value.toString());
-      } else {
-        params.delete(key);
-      }
-    }
-    replace(`${pathname}?${params.toString()}`);
-  }, 500);
-
-  function handleInputChange(value: string) {
-    updateInput(value);
-    updateURLParams();
-  }
-
-  function handleOutputChange(value: string) {
-    updateOutput(value);
-    updateURLParams();
-  }
-
-  function handlePresetChange(value: number) {
-    updatePreset(value);
-    updateURLParams();
-  }
-
-  function handleCrfChange(value: number) {
-    updateCrf(value);
-    updateURLParams();
-  }
-
-  function generateCommand(
-    input: string,
-    output: string,
-    preset: number,
-    crf: number,
-  ) {
-    return `--i ${input} --progress 3 --preset ${preset} --crf ${crf} --b ${output}`;
-  }
-
-  const commandCode = React.useDeferredValue(
-    generateCommand(input, output, preset, crf),
+  const [selectedEncoder, setSelectedEncoder] = useImmer<Encoder>(encoders[0]);
+  const [parameters, setParameters] = useImmer<Record<string, string | number>>(
+    {},
   );
+
+  // Update URL function
+  function updateUrl(
+    encoderId: string,
+    params: Record<string, string | number>,
+  ) {
+    const urlParams = new URLSearchParams();
+    urlParams.set("encoder", encoderId);
+    for (const [key, value] of Object.entries(params)) {
+      urlParams.set(key, value.toString());
+    }
+    const url = `${pathname}?${urlParams.toString()}`;
+    router.replace(url);
+  }
+
+  // Debounced URL update
+  const debouncedUpdateUrl = useDebouncedCallback(updateUrl, 300);
+
+  // Reset parameters when encoder changes
+  useEffect(() => {
+    const newParams: Record<string, string | number> = {};
+    for (const param of selectedEncoder.parameters) {
+      newParams[param.key] = param.defaultValue;
+    }
+    setParameters(newParams);
+    updateUrl(selectedEncoder.id, newParams);
+  }, [selectedEncoder]);
+
+  // Handle encoder change
+  function handleEncoderChange(event: React.ChangeEvent<HTMLSelectElement>) {
+    const newEncoderId = event.target.value;
+    const newEncoder =
+      encoders.find((enc) => enc.id === newEncoderId) || encoders[0];
+    setSelectedEncoder(newEncoder);
+  }
+
+  // Update parameter
+  function updateParameter(key: string, value: string | number) {
+    setParameters((draft) => {
+      draft[key] = value;
+    });
+    debouncedUpdateUrl(selectedEncoder.id, parameters);
+  }
 
   return (
     <>
-      <section className="flex flex-col gap-4">
-        <label htmlFor="input">input: </label>
-        <input
-          id="input"
-          type="text"
-          value={input}
-          onChange={(event) => handleInputChange(event.target.value)}
-        />
+      <div>
+        <label htmlFor="encoder">Encoder: </label>
+        <select
+          id="encoder"
+          value={selectedEncoder.id}
+          onChange={handleEncoderChange}
+        >
+          {encoders.map((encoder) => (
+            <option key={encoder.id} value={encoder.id}>
+              {encoder.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
-        <label htmlFor="preset">preset: {preset} </label>
-        <input
-          id="preset"
-          type="range"
-          min={-3}
-          max={13}
-          value={preset}
-          onChange={(event) => handlePresetChange(Number(event.target.value))}
-        />
-
-        <label htmlFor="crf">crf: {crf} </label>
-        <input
-          id="crf"
-          type="range"
-          min={1}
-          max={63}
-          value={crf}
-          onChange={(event) => handleCrfChange(Number(event.target.value))}
-        />
-
-        <label htmlFor="output">output: </label>
-        <input
-          id="output"
-          type="text"
-          value={output}
-          onChange={(event) => handleOutputChange(event.target.value)}
-        />
+      <section key={selectedEncoder.id} className="flex flex-col gap-4">
+        {selectedEncoder.parameters.map((param) => (
+          <ParameterInput
+            key={param.key}
+            param={param}
+            value={parameters[param.key] || param.defaultValue}
+            onChange={(value) => updateParameter(param.key, value)}
+          />
+        ))}
       </section>
-      <CommandSnippet code={commandCode} />
+
+      <CommandSnippet
+        executable={selectedEncoder.executable || selectedEncoder.id}
+        parameters={selectedEncoder.parameters}
+        values={parameters}
+      />
     </>
   );
 }
