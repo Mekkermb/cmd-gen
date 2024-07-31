@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useImmer } from "use-immer";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { useDebouncedCallback } from "use-debounce";
@@ -15,52 +15,71 @@ export default function CommandGenerator() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const [selectedEncoder, setSelectedEncoder] = useImmer<Encoder>(encoders[0]);
+  const [selectedEncoder, setSelectedEncoder] = useImmer<Encoder>(() => {
+    const encoderIdFromUrl = searchParams.get("encoder");
+    return encoders.find((enc) => enc.id === encoderIdFromUrl) || encoders[0];
+  });
+
   const [parameters, setParameters] = useImmer<Record<string, string | number>>(
     {},
   );
 
-  // Update URL function
   function updateUrl(
     encoderId: string,
     params: Record<string, string | number>,
   ) {
     const urlParams = new URLSearchParams();
     urlParams.set("encoder", encoderId);
-    for (const [key, value] of Object.entries(params)) {
+    Object.entries(params).forEach(([key, value]) => {
       urlParams.set(key, value.toString());
-    }
+    });
     const url = `${pathname}?${urlParams.toString()}`;
     router.replace(url);
   }
 
-  // Debounced URL update
-  const debouncedUpdateUrl = useDebouncedCallback(updateUrl, 300);
+  const debouncedUpdateUrl = useDebouncedCallback(
+    (encoderId: string, params: Record<string, string | number>) => {
+      updateUrl(encoderId, params);
+    },
+    300,
+  );
 
-  // Reset parameters when encoder changes
+  // Initialize parameters on component mount
   useEffect(() => {
-    const newParams: Record<string, string | number> = {};
-    for (const param of selectedEncoder.parameters) {
-      newParams[param.key] = param.defaultValue;
-    }
-    setParameters(newParams);
-    updateUrl(selectedEncoder.id, newParams);
-  }, [selectedEncoder]);
+    const initialParams: Record<string, string | number> = {};
+    selectedEncoder.parameters.forEach((param) => {
+      const urlValue = searchParams.get(param.key);
+      initialParams[param.key] =
+        urlValue !== null ? urlValue : param.defaultValue;
+    });
+    setParameters(initialParams);
 
-  // Handle encoder change
+    // Update URL with initial parameters
+    updateUrl(selectedEncoder.id, initialParams);
+  }, []);
+
   function handleEncoderChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const newEncoderId = event.target.value;
     const newEncoder =
       encoders.find((enc) => enc.id === newEncoderId) || encoders[0];
     setSelectedEncoder(newEncoder);
+
+    // Reset to default values when changing encoders
+    const defaultParams: Record<string, string | number> = {};
+    newEncoder.parameters.forEach((param) => {
+      defaultParams[param.key] = param.defaultValue;
+    });
+    setParameters(defaultParams);
+    updateUrl(newEncoder.id, defaultParams);
   }
 
-  // Update parameter
   function updateParameter(key: string, value: string | number) {
     setParameters((draft) => {
       draft[key] = value;
     });
-    debouncedUpdateUrl(selectedEncoder.id, parameters);
+
+    // Debounced update for parameter changes
+    debouncedUpdateUrl(selectedEncoder.id, { ...parameters, [key]: value });
   }
 
   return (
@@ -85,7 +104,7 @@ export default function CommandGenerator() {
           <ParameterInput
             key={param.key}
             param={param}
-            value={parameters[param.key] || param.defaultValue}
+            value={parameters[param.key] ?? param.defaultValue}
             onChange={(value) => updateParameter(param.key, value)}
           />
         ))}
